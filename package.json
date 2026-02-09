@@ -5,7 +5,8 @@
   "bin": {
     "docs-lint": "./src/cli.ts",
     "docs-images": "./src/images/cli.ts",
-    "docs-og": "./src/og/cli.ts"
+    "docs-og": "./src/og/cli.ts",
+    "install-hooks": "./src/install-hooks.ts"
   },
   "scripts": {
     "lint": "bun src/cli.ts",
