@@ -8,7 +8,7 @@
  *
  * What it does:
  *   1. Creates package.json with lint/images/og scripts
- *   2. Installs docs-tools as a linked dependency
+ *   2. Installs docs-tools from GitHub
  *   3. Installs pre-push git hook
  *   4. Creates .github/workflows/docs.yml
  */
@@ -44,22 +44,22 @@ const pkg = {
   },
   devDependencies: {
     ...(existingPkg.devDependencies ?? {}),
-    "docs-tools": "link:docs-tools",
+    "docs-tools": "github:HealthSamurai/docs-tools",
   },
 };
 
 await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 console.log("✓ package.json");
 
-// --- 2. bun install (link docs-tools) ---
+// --- 2. bun install ---
 
-const install = Bun.spawn(["bun", "link", "docs-tools"], {
+const install = Bun.spawn(["bun", "install"], {
   cwd: root,
   stdout: "pipe",
   stderr: "pipe",
 });
 await install.exited;
-console.log("✓ docs-tools linked");
+console.log("✓ bun install (docs-tools from GitHub)");
 
 // --- 3. Pre-push hook ---
 
@@ -103,16 +103,8 @@ jobs:
         with:
           bun-version: latest
 
-      - uses: actions/checkout@v4
-        with:
-          repository: health-samurai/docs-tools
-          path: .docs-tools
-
-      - name: Install docs-tools
-        run: cd .docs-tools && bun install
-
-      - name: Lint
-        run: bun .docs-tools/src/cli.ts
+      - run: bun install
+      - run: bun lint
 
   images:
     runs-on: ubuntu-latest
@@ -124,19 +116,9 @@ jobs:
         with:
           bun-version: latest
 
-      - uses: actions/checkout@v4
-        with:
-          repository: health-samurai/docs-tools
-          path: .docs-tools
-
-      - name: Install docs-tools
-        run: cd .docs-tools && bun install
-
-      - name: Optimize images
-        run: bun .docs-tools/src/images/cli.ts optimize
-
-      - name: Generate OG images
-        run: bun .docs-tools/src/og/cli.ts generate
+      - run: bun install
+      - run: bun images:optimize
+      - run: bun og:generate
 
       - name: Commit optimized assets
         run: |
