@@ -1,0 +1,56 @@
+name: "docs-tools"
+description: "Lint documentation, optimize images, and generate OG images"
+
+inputs:
+  command:
+    description: "Command to run: lint, optimize-images, og-generate"
+    required: false
+    default: "lint"
+  check:
+    description: "Run a specific check only (for lint command)"
+    required: false
+  json:
+    description: "Output JSON (for lint command)"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install docs-tools deps
+      shell: bash
+      run: cd ${{ github.action_path }}/.. && bun install
+
+    - name: Run lint
+      if: inputs.command == 'lint'
+      shell: bash
+      run: |
+        ARGS=""
+        if [ "${{ inputs.check }}" != "" ]; then
+          ARGS="--check ${{ inputs.check }}"
+        fi
+        if [ "${{ inputs.json }}" == "true" ]; then
+          ARGS="$ARGS --json"
+        fi
+        bun ${{ github.action_path }}/../src/cli.ts $ARGS
+
+    - name: Run image optimization
+      if: inputs.command == 'optimize-images'
+      shell: bash
+      run: bun ${{ github.action_path }}/../src/images/cli.ts optimize
+
+    - name: Run OG image generation
+      if: inputs.command == 'og-generate'
+      shell: bash
+      run: |
+        bun ${{ github.action_path }}/../src/og/cli.ts generate
+        # Auto-commit generated images
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add assets/og/
+        git diff --cached --quiet || git commit -m "chore: auto-generate OG images" && git push

@@ -1,0 +1,27 @@
+{
+  "name": "docs-tools",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "docs-lint": "./src/cli.ts",
+    "docs-images": "./src/images/cli.ts",
+    "docs-og": "./src/og/cli.ts"
+  },
+  "scripts": {
+    "lint": "bun src/cli.ts",
+    "images": "bun src/images/cli.ts",
+    "og": "bun src/og/cli.ts",
+    "test": "bun test",
+    "typecheck": "bun --bun tsc --noEmit"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "satori": "^0.19.1",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "bun-types": "latest",
+    "typescript": "^5.7.0"
+  }
+}
