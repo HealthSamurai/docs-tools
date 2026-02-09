@@ -9,9 +9,9 @@ import { mkdir } from "fs/promises";
 const root = process.cwd();
 const hooksDir = join(root, ".git", "hooks");
 
-// Skip if not a git repo (e.g. during CI checkout of docs-tools itself)
-const gitDir = Bun.file(join(root, ".git"));
-if (!(await gitDir.exists())) process.exit(0);
+// Skip if not a git repo (e.g. during CI)
+import { exists } from "fs/promises";
+if (!(await exists(join(root, ".git")))) process.exit(0);
 
 await mkdir(hooksDir, { recursive: true });
 

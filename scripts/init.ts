@@ -32,7 +32,7 @@ const pkg = {
   private: true,
   scripts: {
     ...(existingPkg.scripts ?? {}),
-    prepare: "install-hooks",
+    postinstall: "install-hooks",
     lint: "docs-lint",
     "lint:check": "docs-lint --check",
     "lint:json": "docs-lint --json",
