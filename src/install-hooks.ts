@@ -17,7 +17,8 @@ await mkdir(hooksDir, { recursive: true });
 
 const hookPath = join(hooksDir, "pre-push");
 const hookContent = `#!/bin/sh
-# docs-tools pre-push hook — runs all lint checks before push
+# docs-tools pre-push hook — update tools + lint before push
+bun update docs-tools --silent 2>/dev/null
 bun lint
 `;
 
