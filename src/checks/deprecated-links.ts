@@ -12,9 +12,16 @@ export const deprecatedLinks: Check = {
     const issues: Issue[] = [];
     const summaryName = ctx.config.summary;
 
+    // Get per-check config for file exclusions
+    const checkConfig = ctx.config.checks["deprecated-links"] as
+      | { exclude_files?: string[] }
+      | undefined;
+    const excludeFiles = checkConfig?.exclude_files ?? [];
+
     for (const file of ctx.files) {
-      // Skip SUMMARY.md and files in deprecated directories
+      // Skip SUMMARY.md, files in deprecated directories, and excluded files
       if (file === summaryName || file.includes("deprecated")) continue;
+      if (excludeFiles.some((pattern) => file.includes(pattern))) continue;
 
       const content = await readFile(join(ctx.docsDir, file));
       if (!content) continue;

@@ -35,11 +35,18 @@ async function linkTargetExists(
   // Try as directory with README.md
   if (await fileExists(join(resolved, "README.md"))) return true;
 
-  // If ends with /, try basename.md
+  // If ends with /, try basename.md (e.g. access-control/ -> access-control.md)
   if (rawHref.endsWith("/")) {
     const base = rawHref.slice(0, -1);
     const basePath = resolveLink(docsDir, sourceFile, base + ".md");
     if (await fileExists(basePath)) return true;
+
+    // Try {dirname}/{dirname}.md (e.g. access-control/ -> access-control/access-control.md)
+    const dirName = base.split("/").pop() || "";
+    if (dirName) {
+      const innerPath = resolveLink(docsDir, sourceFile, base + "/" + dirName + ".md");
+      if (await fileExists(innerPath)) return true;
+    }
   }
 
   // Try with spaces decoded/encoded

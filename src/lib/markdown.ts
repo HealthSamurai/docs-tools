@@ -1,24 +1,36 @@
 /**
  * Walk lines of a markdown file, skipping code blocks.
+ * Tracks both fenced code blocks (```) and HTML <pre> blocks.
  * Yields { line, lineNum, inCodeBlock }.
  */
 export function* walkLines(
   content: string,
 ): Generator<{ line: string; lineNum: number; inCodeBlock: boolean }> {
   const lines = content.split("\n");
-  let inCodeBlock = false;
+  let inFencedBlock = false;
+  let inPreBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trimStart();
 
     if (trimmed.startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-      yield { line, lineNum: i + 1, inCodeBlock };
+      inFencedBlock = !inFencedBlock;
+      yield { line, lineNum: i + 1, inCodeBlock: true };
       continue;
     }
 
-    yield { line, lineNum: i + 1, inCodeBlock };
+    // Track HTML <pre> blocks (from GitBook migration)
+    if (!inFencedBlock) {
+      if (/<pre[\s>]/i.test(trimmed)) inPreBlock = true;
+      if (/<\/pre>/i.test(trimmed)) {
+        yield { line, lineNum: i + 1, inCodeBlock: true };
+        inPreBlock = false;
+        continue;
+      }
+    }
+
+    yield { line, lineNum: i + 1, inCodeBlock: inFencedBlock || inPreBlock };
   }
 }
 
