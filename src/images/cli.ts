@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { resolve } from "path";
+import { existsSync } from "fs";
 import { loadConfig } from "../config";
 import { checkUnoptimized } from "./check";
 import { optimizeImages } from "./optimize";
@@ -40,6 +41,11 @@ async function main(): Promise<void> {
   const root = process.cwd();
   const config = await loadConfig(root);
   const assetsDir = resolve(root, config.assets_dir);
+
+  if (!existsSync(assetsDir)) {
+    console.log(`No assets directory (${config.assets_dir}/), nothing to do.`);
+    process.exit(0);
+  }
 
   switch (command) {
     case "check":
