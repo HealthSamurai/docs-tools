@@ -13,6 +13,7 @@ import { redirects } from "./redirects";
 import { brokenLinks } from "./broken-links";
 import { missingImages } from "./missing-images";
 import { orphanPages } from "./orphan-pages";
+import { deadEndPages } from "./dead-end-pages";
 
 export const allChecks: Check[] = [
   frontmatterYaml,
@@ -29,4 +30,5 @@ export const allChecks: Check[] = [
   brokenLinks,
   missingImages,
   orphanPages,
+  deadEndPages,
 ];
