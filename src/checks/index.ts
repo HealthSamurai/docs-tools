@@ -14,6 +14,7 @@ import { brokenLinks } from "./broken-links";
 import { missingImages } from "./missing-images";
 import { orphanPages } from "./orphan-pages";
 import { deadEndPages } from "./dead-end-pages";
+import { headingOrder } from "./heading-order";
 
 export const allChecks: Check[] = [
   frontmatterYaml,
@@ -31,4 +32,5 @@ export const allChecks: Check[] = [
   missingImages,
   orphanPages,
   deadEndPages,
+  headingOrder,
 ];
