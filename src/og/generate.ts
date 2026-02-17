@@ -76,11 +76,16 @@ async function loadFont(): Promise<ArrayBuffer> {
 export async function generateOgImages(options: GenerateOptions): Promise<void> {
   const { root, config, dryRun, diffOnly } = options;
   const docsDir = join(root, config.docs_dir);
-  const summaryPath = join(docsDir, config.summary);
   const ogDir = join(root, config.assets_dir, "og");
 
   const brand = config.og?.brand ?? "Docs";
   const color = config.og?.color ?? "#D95640";
+
+  // Try SUMMARY.md in docs dir first, then fall back to repo root
+  let summaryPath = join(docsDir, config.summary);
+  if (!(await Bun.file(summaryPath).exists())) {
+    summaryPath = join(root, config.summary);
+  }
 
   const entries = await parseSummary(summaryPath);
   if (entries.length === 0) {

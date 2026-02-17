@@ -5,7 +5,11 @@ import { getMarkdownFiles } from "./lib/files";
 export async function buildContext(root: string, config: Config): Promise<CheckContext> {
   const docsDir = join(root, config.docs_dir);
   const assetsDir = join(root, config.assets_dir);
-  const summaryPath = join(docsDir, config.summary);
+  // Try SUMMARY.md in docs dir first, then fall back to repo root
+  let summaryPath = join(docsDir, config.summary);
+  if (!(await Bun.file(summaryPath).exists())) {
+    summaryPath = join(root, config.summary);
+  }
   const redirectsPath = join(root, config.redirects);
 
   const files = await getMarkdownFiles(docsDir, config.exclude);
