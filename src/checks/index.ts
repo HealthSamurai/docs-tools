@@ -15,6 +15,9 @@ import { missingImages } from "./missing-images";
 import { orphanPages } from "./orphan-pages";
 import { deadEndPages } from "./dead-end-pages";
 import { headingOrder } from "./heading-order";
+import { externalLinks } from "./external-links";
+import { unparsedWidgets } from "./unparsed-widgets";
+import { localUrls } from "./local-urls";
 
 export const allChecks: Check[] = [
   frontmatterYaml,
@@ -33,4 +36,7 @@ export const allChecks: Check[] = [
   orphanPages,
   deadEndPages,
   headingOrder,
+  unparsedWidgets,
+  externalLinks,
+  localUrls,
 ];

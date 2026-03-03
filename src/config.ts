@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: Config = {
   redirects: "redirects.yaml",
   exclude: ["deprecated"],
   checks: {
-    disable: [],
+    disable: ["external-links", "local-urls"],
     warn_only: ["image-alt", "orphan-pages"],
   },
 };

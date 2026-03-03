@@ -51,14 +51,14 @@ export function filterChecks(
   config: Config,
   only?: string,
 ): Check[] {
-  let checks = allChecks.filter((c) => !config.checks.disable.includes(c.id));
-
   if (only) {
-    checks = checks.filter((c) => c.id === only);
+    // --check overrides disable list — allow running any check explicitly
+    const checks = allChecks.filter((c) => c.id === only);
     if (checks.length === 0) {
       throw new Error(`Unknown check: ${only}`);
     }
+    return checks;
   }
 
-  return checks;
+  return allChecks.filter((c) => !config.checks.disable.includes(c.id));
 }
