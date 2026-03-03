@@ -3,7 +3,7 @@ import { join } from "path";
 import { stat } from "fs/promises";
 
 const HEAVY_THRESHOLD = 500 * 1024; // 500KB
-const OPTIMIZABLE_EXTENSIONS = ["png", "jpg", "jpeg", "gif"];
+const OPTIMIZABLE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"];
 
 interface UnoptimizedImage {
   path: string;

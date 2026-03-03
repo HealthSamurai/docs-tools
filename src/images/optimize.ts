@@ -3,13 +3,14 @@ import { join, extname } from "path";
 import { stat, unlink } from "fs/promises";
 import { updateRefsInDir } from "./update-refs";
 
-const OPTIMIZABLE_EXTENSIONS = ["png", "jpg", "jpeg", "gif"];
+const OPTIMIZABLE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"];
 
 interface OptimizeOptions {
   dryRun: boolean;
   keepOriginals: boolean;
   quality: number;
   maxWidth: number;
+  excludeDirs?: string[];
 }
 
 interface ConversionResult {
@@ -35,10 +36,12 @@ export async function optimizeImages(
   }
 
   const files: string[] = [];
+  const excludeDirs = options.excludeDirs ?? ["og"];
 
   for (const ext of OPTIMIZABLE_EXTENSIONS) {
     const glob = new Glob(`**/*.${ext}`);
     for await (const path of glob.scan({ cwd: assetsDir, absolute: false })) {
+      if (excludeDirs.some((dir) => path.startsWith(dir + "/"))) continue;
       files.push(path);
     }
   }
