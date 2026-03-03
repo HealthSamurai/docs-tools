@@ -11,7 +11,6 @@ const BLOCK_WIDGETS = new Set([
   "tabs",
   "tab",
   "content-ref",
-  "embed",
   "stepper",
   "step",
   "code",
@@ -19,8 +18,12 @@ const BLOCK_WIDGETS = new Set([
   "swagger-description",
   "swagger-parameter",
   "swagger-response",
-  "file",
 ]);
+
+/**
+ * Self-closing widgets that don't require an end tag.
+ */
+const SELF_CLOSING_WIDGETS = new Set(["embed", "file"]);
 
 /**
  * Widget nesting rules: child -> required parent.
@@ -82,7 +85,7 @@ export const unparsedWidgets: Check = {
       // Check for unknown widget types
       for (const tag of tags) {
         const baseName = tag.name;
-        if (!BLOCK_WIDGETS.has(baseName)) {
+        if (!BLOCK_WIDGETS.has(baseName) && !SELF_CLOSING_WIDGETS.has(baseName)) {
           issues.push({
             file,
             line: tag.lineNum,

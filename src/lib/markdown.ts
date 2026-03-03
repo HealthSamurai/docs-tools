@@ -7,21 +7,42 @@ export function* walkLines(
   content: string,
 ): Generator<{ line: string; lineNum: number; inCodeBlock: boolean }> {
   const lines = content.split("\n");
-  let inFencedBlock = false;
+  let fenceChar = ""; // "" = not in fence, "`" or "~" when in fence
+  let fenceLen = 0;
   let inPreBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trimStart();
 
-    if (trimmed.startsWith("```")) {
-      inFencedBlock = !inFencedBlock;
-      yield { line, lineNum: i + 1, inCodeBlock: true };
-      continue;
+    // Fenced code blocks: opening fence sets char+length,
+    // closing fence must use same char and be at least as long (CommonMark spec)
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const char = fenceMatch[1][0];
+      const len = fenceMatch[1].length;
+
+      if (!fenceChar) {
+        // Opening fence
+        fenceChar = char;
+        fenceLen = len;
+        yield { line, lineNum: i + 1, inCodeBlock: true };
+        continue;
+      } else if (
+        char === fenceChar &&
+        len >= fenceLen &&
+        trimmed.slice(len).trim() === ""
+      ) {
+        // Closing fence: same char, at least as long, no content after
+        fenceChar = "";
+        fenceLen = 0;
+        yield { line, lineNum: i + 1, inCodeBlock: true };
+        continue;
+      }
     }
 
     // Track HTML <pre> blocks (from GitBook migration)
-    if (!inFencedBlock) {
+    if (!fenceChar) {
       if (/<pre[\s>]/i.test(trimmed)) inPreBlock = true;
       if (/<\/pre>/i.test(trimmed)) {
         yield { line, lineNum: i + 1, inCodeBlock: true };
@@ -30,7 +51,7 @@ export function* walkLines(
       }
     }
 
-    yield { line, lineNum: i + 1, inCodeBlock: inFencedBlock || inPreBlock };
+    yield { line, lineNum: i + 1, inCodeBlock: !!fenceChar || inPreBlock };
   }
 }
 
