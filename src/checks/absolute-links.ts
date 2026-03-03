@@ -13,11 +13,12 @@ export const absoluteLinks: Check = {
   async run(ctx: CheckContext): Promise<CheckResult> {
     const issues: Issue[] = [];
 
-    // Get configured domains or use defaults
+    // Get configured domains and exclusions
     const checkConfig = ctx.config.checks["absolute-links"] as
-      | { domains?: string[] }
+      | { domains?: string[]; exclude_files?: string[] }
       | undefined;
     const domains = checkConfig?.domains ?? DEFAULT_DOMAINS;
+    const excludeFiles = checkConfig?.exclude_files ?? [];
 
     // Build patterns from domains
     const patterns = domains.map(
@@ -25,6 +26,7 @@ export const absoluteLinks: Check = {
     );
 
     for (const file of ctx.files) {
+      if (excludeFiles.some((pattern) => file.includes(pattern))) continue;
       const content = await readFile(join(ctx.docsDir, file));
       if (!content) continue;
 
