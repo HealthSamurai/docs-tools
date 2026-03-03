@@ -8,7 +8,7 @@ interface Rename {
 
 /**
  * Update image references in all markdown files in a directory.
- * Replaces old image filenames with new ones (e.g., .png -> .webp).
+ * Replaces old image filenames with new ones (e.g., .png -> .avif).
  */
 export async function updateRefsInDir(
   docsDir: string,

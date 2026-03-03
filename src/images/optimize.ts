@@ -1,5 +1,5 @@
 import { Glob } from "bun";
-import { join, basename, extname } from "path";
+import { join, extname } from "path";
 import { stat, unlink } from "fs/promises";
 import { updateRefsInDir } from "./update-refs";
 
@@ -57,12 +57,12 @@ export async function optimizeImages(
     const fullPath = join(assetsDir, file);
     const info = await stat(fullPath);
     const ext = extname(file);
-    const webpPath = file.slice(0, -ext.length) + ".webp";
-    const webpFullPath = join(assetsDir, webpPath);
+    const avifPath = file.slice(0, -ext.length) + ".avif";
+    const avifFullPath = join(assetsDir, avifPath);
 
     if (options.dryRun) {
-      console.log(`  Would convert: ${file} -> ${webpPath}`);
-      renames.push({ from: file, to: webpPath });
+      console.log(`  Would convert: ${file} -> ${avifPath}`);
+      renames.push({ from: file, to: avifPath });
       continue;
     }
 
@@ -75,23 +75,23 @@ export async function optimizeImages(
         pipeline = pipeline.resize(options.maxWidth);
       }
 
-      await pipeline.webp({ quality: options.quality }).toFile(webpFullPath);
+      await pipeline.avif({ quality: options.quality }).toFile(avifFullPath);
 
-      const newInfo = await stat(webpFullPath);
+      const newInfo = await stat(avifFullPath);
       const savings = ((1 - newInfo.size / info.size) * 100).toFixed(0);
 
       results.push({
         source: file,
-        dest: webpPath,
+        dest: avifPath,
         originalSize: info.size,
         newSize: newInfo.size,
       });
 
       console.log(
-        `  ${file} -> ${webpPath} (${formatSize(info.size)} -> ${formatSize(newInfo.size)}, -${savings}%)`,
+        `  ${file} -> ${avifPath} (${formatSize(info.size)} -> ${formatSize(newInfo.size)}, -${savings}%)`,
       );
 
-      renames.push({ from: file, to: webpPath });
+      renames.push({ from: file, to: avifPath });
 
       if (!options.keepOriginals) {
         await unlink(fullPath);

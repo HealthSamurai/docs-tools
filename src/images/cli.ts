@@ -9,13 +9,13 @@ function usage(): void {
   console.log(`Usage: docs-images <command> [options]
 
 Commands:
-  optimize             Convert PNG/JPG to WebP, compress, update refs
+  optimize             Convert PNG/JPG to AVIF, compress, update refs
   check                Report heavy/unoptimized images
 
 Options:
   --dry-run            Show what would change without modifying files
   --keep-originals     Keep original files after conversion
-  --quality <n>        WebP quality (default: 85)
+  --quality <n>        AVIF quality (default: 65)
   --max-width <n>      Max width in px (default: 2000)
   --help               Show this help`);
 }
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   const keepOriginals = args.includes("--keep-originals");
 
   const qualityIdx = args.indexOf("--quality");
-  const quality = qualityIdx !== -1 ? parseInt(args[qualityIdx + 1], 10) : 85;
+  const quality = qualityIdx !== -1 ? parseInt(args[qualityIdx + 1], 10) : 65;
 
   const widthIdx = args.indexOf("--max-width");
   const maxWidth = widthIdx !== -1 ? parseInt(args[widthIdx + 1], 10) : 2000;

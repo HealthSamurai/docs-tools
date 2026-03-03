@@ -32,7 +32,7 @@ export async function checkUnoptimized(assetsDir: string): Promise<void> {
         results.push({
           path,
           size: info.size,
-          reason: `Not WebP`,
+          reason: `Not AVIF`,
         });
       }
     }
@@ -47,7 +47,7 @@ export async function checkUnoptimized(assetsDir: string): Promise<void> {
   results.sort((a, b) => b.size - a.size);
 
   const heavy = results.filter((r) => r.size > HEAVY_THRESHOLD);
-  const notWebp = results.filter((r) => r.size <= HEAVY_THRESHOLD);
+  const notAvif = results.filter((r) => r.size <= HEAVY_THRESHOLD);
 
   console.log(`Found ${results.length} unoptimized images:\n`);
 
@@ -62,17 +62,17 @@ export async function checkUnoptimized(assetsDir: string): Promise<void> {
     console.log();
   }
 
-  if (notWebp.length > 0) {
-    console.log(`  Not WebP (${notWebp.length} files)`);
-    for (const img of notWebp.slice(0, 10)) {
+  if (notAvif.length > 0) {
+    console.log(`  Not AVIF (${notAvif.length} files)`);
+    for (const img of notAvif.slice(0, 10)) {
       console.log(`    ${img.path} (${formatSize(img.size)})`);
     }
-    if (notWebp.length > 10) {
-      console.log(`    ... and ${notWebp.length - 10} more`);
+    if (notAvif.length > 10) {
+      console.log(`    ... and ${notAvif.length - 10} more`);
     }
   }
 
-  console.log(`\nRun 'docs-images optimize' to convert to WebP`);
+  console.log(`\nRun 'docs-images optimize' to convert to AVIF`);
 }
 
 function formatSize(bytes: number): string {
