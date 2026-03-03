@@ -3,7 +3,7 @@ import type { Check, CheckContext, CheckResult, Issue } from "../types";
 import { contentLines } from "../lib/markdown";
 import { readFile, fileExists } from "../lib/files";
 
-const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|svg|webp|bmp|tiff)$/i;
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|svg|webp|avif|bmp|tiff)$/i;
 
 interface ImageRef {
   path: string;

@@ -42,5 +42,5 @@ export function isExternal(href: string): boolean {
  * Check if a href points to an image file.
  */
 export function isImageHref(href: string): boolean {
-  return /\.(png|jpg|jpeg|gif|svg|webp|bmp|tiff)$/i.test(href);
+  return /\.(png|jpg|jpeg|gif|svg|webp|avif|bmp|tiff)$/i.test(href);
 }
