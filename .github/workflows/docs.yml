@@ -1,0 +1,52 @@
+name: docs
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bun lint
+
+  update:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update docs-tools
+        run: |
+          bun update docs-tools
+          git add bun.lock 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "chore: update docs-tools"
+
+      - name: Optimize assets
+        run: |
+          bun images:optimize
+          bun og:generate
+          git add assets/ docs/ 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "chore: optimize assets"
+
+      - name: Push changes
+        run: git push
