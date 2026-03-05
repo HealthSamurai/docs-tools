@@ -18,6 +18,8 @@ const BLOCK_WIDGETS = new Set([
   "swagger-description",
   "swagger-parameter",
   "swagger-response",
+  "carousel",
+  "quote",
 ]);
 
 /**
