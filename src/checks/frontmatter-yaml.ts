@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const frontmatterYaml: Check = {
   id: "frontmatter-yaml",
   name: "Frontmatter YAML",
+  description: "YAML frontmatter between --- markers has syntax errors. Fix the YAML or remove the frontmatter block.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -35,6 +36,7 @@ export const frontmatterYaml: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

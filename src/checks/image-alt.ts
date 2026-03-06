@@ -34,6 +34,7 @@ function extractImgTags(content: string): { tag: string; lineNum: number }[] {
 export const imageAlt: Check = {
   id: "image-alt",
   name: "Image Alt Text",
+  description: "Image has no alt text. Add a description: ![description](image.png) or alt attribute for <img> tags.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -75,6 +76,7 @@ export const imageAlt: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

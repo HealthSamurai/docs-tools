@@ -10,6 +10,7 @@ import { readFile } from "../lib/files";
 export const deadEndPages: Check = {
   id: "dead-end-pages",
   name: "Dead-end Pages",
+  description: "Page has no outgoing links to other docs — readers hit a dead end. Add links to related pages.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -42,6 +43,7 @@ export const deadEndPages: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

@@ -72,6 +72,7 @@ function extractWidgetTags(content: string): WidgetTag[] {
 export const unparsedWidgets: Check = {
   id: "unparsed-widgets",
   name: "Unparsed Widgets",
+  description: "Widget tag is unclosed, mismatched, or incorrectly nested. Check opening/closing tags like {% hint %}/{% endhint %}.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -158,6 +159,7 @@ export const unparsedWidgets: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const brokenReferences: Check = {
   id: "broken-references",
   name: "Broken References",
+  description: 'File contains a GitBook "broken-reference" placeholder. Replace it with a real link to an existing page.',
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -29,6 +30,7 @@ export const brokenReferences: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

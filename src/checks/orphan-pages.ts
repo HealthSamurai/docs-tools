@@ -37,6 +37,7 @@ function normalizeLink(sourceFile: string, href: string): string {
 export const orphanPages: Check = {
   id: "orphan-pages",
   name: "Orphan Pages",
+  description: "No other page links to this page — readers cannot discover it. Add a link from a related page.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -91,6 +92,7 @@ export const orphanPages: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const emptyHeaders: Check = {
   id: "empty-headers",
   name: "Empty Headers",
+  description: 'Heading line has no text (e.g. bare "## "). Add heading text or remove the empty line.',
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -29,6 +30,7 @@ export const emptyHeaders: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

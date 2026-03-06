@@ -4,6 +4,7 @@ import { readFile } from "../lib/files";
 export const ampersandSummary: Check = {
   id: "ampersand-summary",
   name: "Ampersand in Summary",
+  description: 'SUMMARY.md uses "&" in a page title. Replace it with "and" for consistency.',
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -14,6 +15,7 @@ export const ampersandSummary: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues: [],
         filesChecked: 0,
@@ -39,6 +41,7 @@ export const ampersandSummary: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: content ? 1 : 0,

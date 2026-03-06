@@ -8,6 +8,7 @@ const DEFAULT_DOMAINS = ["docs.aidbox.app", "www.health-samurai.io/docs"];
 export const absoluteLinks: Check = {
   id: "absolute-links",
   name: "Absolute Links",
+  description: "Link uses a hardcoded absolute URL to your own docs site. Use a relative markdown link instead (e.g. ./page.md).",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -48,6 +49,7 @@ export const absoluteLinks: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

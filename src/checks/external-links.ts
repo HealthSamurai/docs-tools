@@ -230,6 +230,7 @@ async function checkUrlsConcurrently(
 export const externalLinks: Check = {
   id: "external-links",
   name: "External Links",
+  description: "External URL returned an error (404, timeout, etc). Update or remove the broken link.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -261,6 +262,7 @@ export const externalLinks: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

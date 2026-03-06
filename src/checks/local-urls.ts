@@ -70,6 +70,7 @@ function toLocalUrl(url: string, serverUrl: string): string {
 export const localUrls: Check = {
   id: "local-urls",
   name: "Local URLs",
+  description: "Page URL from the local dev server returns an error. Check that the page renders correctly.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -81,6 +82,7 @@ export const localUrls: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues: [],
         filesChecked: 0,
@@ -106,6 +108,7 @@ export const localUrls: Check = {
         return {
           checkId: this.id,
           name: this.name,
+      description: this.description,
           severity: this.severity,
           issues,
           filesChecked: 0,
@@ -121,6 +124,7 @@ export const localUrls: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues,
         filesChecked: 0,
@@ -185,6 +189,7 @@ export const localUrls: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: uniqueUrls.length,

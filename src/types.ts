@@ -1,6 +1,7 @@
 export interface Check {
   id: string;
   name: string;
+  description: string;
   severity: "error" | "warning";
   run(ctx: CheckContext): Promise<CheckResult>;
 }
@@ -8,6 +9,7 @@ export interface Check {
 export interface CheckResult {
   checkId: string;
   name: string;
+  description: string;
   severity: "error" | "warning";
   issues: Issue[];
   filesChecked: number;

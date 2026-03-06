@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const h1Headers: Check = {
   id: "h1-headers",
   name: "H1 Headers",
+  description: "Each page must have exactly one # H1 heading (the page title). Remove extra H1s or add one if missing.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -34,6 +35,7 @@ export const h1Headers: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

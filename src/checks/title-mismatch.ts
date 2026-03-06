@@ -23,6 +23,7 @@ function normalizeTitle(title: string): string {
 export const titleMismatch: Check = {
   id: "title-mismatch",
   name: "Title Mismatch",
+  description: "The page title in SUMMARY.md does not match the # H1 heading in the file. Update one to match the other.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -33,6 +34,7 @@ export const titleMismatch: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues: [],
         filesChecked: 0,
@@ -65,6 +67,7 @@ export const titleMismatch: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: checked,

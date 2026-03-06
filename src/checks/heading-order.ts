@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const headingOrder: Check = {
   id: "heading-order",
   name: "Heading Order",
+  description: "Heading levels are skipped (e.g. H1 → H3 without H2). Add the missing intermediate heading level.",
   severity: "warning",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -35,6 +36,7 @@ export const headingOrder: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

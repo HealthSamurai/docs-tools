@@ -59,6 +59,7 @@ async function linkTargetExists(
 export const brokenLinks: Check = {
   id: "broken-links",
   name: "Broken Links",
+  description: "Internal markdown link points to a file that does not exist. Fix the path or create the missing file.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -98,6 +99,7 @@ export const brokenLinks: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

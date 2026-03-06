@@ -6,6 +6,7 @@ import { readFile } from "../lib/files";
 export const deprecatedLinks: Check = {
   id: "deprecated-links",
   name: "Deprecated Links",
+  description: "Link points to a page in a deprecated/ directory. Update it to point to the current version of that page.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -41,6 +42,7 @@ export const deprecatedLinks: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

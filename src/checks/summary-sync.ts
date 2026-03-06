@@ -6,6 +6,7 @@ import { join } from "path";
 export const summarySync: Check = {
   id: "summary-sync",
   name: "Summary vs Files",
+  description: "A .md file exists on disk but is not in SUMMARY.md, or SUMMARY.md references a file that does not exist. Add the entry or create the file.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -16,6 +17,7 @@ export const summarySync: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues: [],
         filesChecked: 0,
@@ -55,6 +57,7 @@ export const summarySync: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: filesOnDisk.size,

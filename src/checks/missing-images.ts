@@ -70,6 +70,7 @@ async function imageExists(
 export const missingImages: Check = {
   id: "missing-images",
   name: "Missing Images",
+  description: "Referenced image file not found in assets/. Add the image or fix the path in the markdown.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -103,6 +104,7 @@ export const missingImages: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: ctx.files.length,

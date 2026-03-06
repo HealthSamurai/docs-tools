@@ -5,6 +5,7 @@ import { readFile, fileExists } from "../lib/files";
 export const redirects: Check = {
   id: "redirects",
   name: "Redirects",
+  description: "redirects.yaml has issues: target .md file does not exist, or YAML syntax is invalid. Fix the target path or the YAML.",
   severity: "error",
 
   async run(ctx: CheckContext): Promise<CheckResult> {
@@ -16,6 +17,7 @@ export const redirects: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues: [],
         filesChecked: 0,
@@ -34,6 +36,7 @@ export const redirects: Check = {
       return {
         checkId: this.id,
         name: this.name,
+      description: this.description,
         severity: this.severity,
         issues,
         filesChecked: 1,
@@ -62,6 +65,7 @@ export const redirects: Check = {
     return {
       checkId: this.id,
       name: this.name,
+      description: this.description,
       severity: this.severity,
       issues,
       filesChecked: total,

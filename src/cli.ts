@@ -45,8 +45,9 @@ async function main(): Promise<void> {
   if (args.includes("--list")) {
     console.log("Available checks:\n");
     for (const check of allChecks) {
-      const sev = check.severity === "warning" ? "(warning)" : "";
-      console.log(`  ${check.id.padEnd(24)} ${check.name} ${sev}`);
+      const sev = check.severity === "warning" ? " (warning)" : "";
+      console.log(`  ${check.id.padEnd(24)} ${check.name}${sev}`);
+      console.log(`  ${"".padEnd(24)} ${check.description}`);
     }
     process.exit(0);
   }

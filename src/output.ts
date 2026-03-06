@@ -44,6 +44,9 @@ export function printResult(result: CheckResult): void {
   const printer = result.severity === "warning" ? checkWarning : checkError;
 
   printer(`Found ${result.issues.length} ${label}(s):`);
+  if (result.description) {
+    console.log(`        ${DIM}${result.description}${RESET}`);
+  }
 
   const limit = 10;
   for (const issue of result.issues.slice(0, limit)) {
