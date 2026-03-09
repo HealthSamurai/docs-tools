@@ -88,12 +88,7 @@ async function cleanDir(dir: string): Promise<void> {
   }
   const proc = Bun.spawn(["rm", "-rf", dir], { stdout: "ignore", stderr: "ignore" });
   await proc.exited;
-  await Bun.write(join(dir, ".gitkeep"), ""); // ensure dir exists
-  const proc2 = Bun.spawn(["rm", join(dir, ".gitkeep")], {
-    stdout: "ignore",
-    stderr: "ignore",
-  });
-  await proc2.exited;
+  await mkdirp(dir);
 }
 
 async function mkdirp(dir: string): Promise<void> {
@@ -150,22 +145,44 @@ async function globFiles(dir: string, pattern: string): Promise<string[]> {
  *
  * Also handles optional prefix stripping (e.g. "auditbox/" for auditbox assets).
  */
+/**
+ * @param content  - markdown file content
+ * @param filePath - path relative to docs/ dir (e.g. "getting-started/page.md")
+ * @param opts.stripAssetPrefix - prefix to strip from asset filenames (e.g. "auditbox/")
+ */
 function rewriteImagePaths(
   content: string,
+  filePath: string,
   opts?: { stripAssetPrefix?: string },
 ): string {
   const prefix = opts?.stripAssetPrefix
     ? opts.stripAssetPrefix.replace(/\/$/, "") + "/"
     : "";
 
-  // Handle both markdown and HTML image references
-  // Matches: (../../).gitbook/assets/[prefix]file.png
+  // Calculate the correct relative path from this file to repo-root/assets/
+  // File is at docs/<filePath>, assets/ is at repo root (sibling to docs/)
+  const depth = filePath.split("/").length; // e.g. "a/b/page.md" = 3 segments = 3 levels up to repo root
+  const toRoot = "../".repeat(depth); // from docs/a/b/page.md -> ../../../ = repo root
+  const assetsRef = toRoot + "assets/";
+
+  // Replace any (../)*[.gitbook/assets/][prefix] with the correct path
   const pattern = new RegExp(
-    `((?:\\.\\.\\/)*)\\.gitbook\\/assets\\/${escapeRegex(prefix)}`,
+    `(?:\\.\\.\\/)*\\.gitbook\\/assets\\/${escapeRegex(prefix)}`,
     "g",
   );
+  let result = content.replace(pattern, assetsRef);
 
-  return content.replace(pattern, "$1../assets/");
+  // Also strip prefix from already-rewritten relative paths:
+  // ../assets/auditbox/X -> ../assets/X
+  if (prefix) {
+    const alreadyRewritten = new RegExp(
+      `((?:\\.\\.\\/)+assets\\/)${escapeRegex(prefix)}`,
+      "g",
+    );
+    result = result.replace(alreadyRewritten, assetsRef);
+  }
+
+  return result;
 }
 
 function escapeRegex(s: string): string {
@@ -307,6 +324,7 @@ function extractFormboxSummary(fullSummary: string): string {
  */
 function rewriteExternalLinks(
   content: string,
+  filePath: string,
   formboxPaths: Set<string>,
 ): string {
   // Match markdown links: [text](path)
@@ -324,23 +342,33 @@ function rewriteExternalLinks(
     }
 
     // Skip image references
-    if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(href)) return match;
+    if (/\.(png|jpg|jpeg|gif|svg|webp|avif)$/i.test(href)) return match;
 
     // Strip anchor
-    const cleanHref = href.split("#")[0];
+    const [cleanHref, anchor] = href.split("#");
     if (!cleanHref) return match;
 
-    // Relative paths that go up beyond formbox root (../../) likely point to aidbox
-    if (cleanHref.startsWith("../../") || cleanHref.startsWith("../../../")) {
-      // Resolve to aidbox path
-      const aidboxPath = cleanHref
-        .replace(/^(\.\.\/)+/, "")
-        .replace(/\.md$/, "")
-        .replace(/\/README$/, "");
-      return `${text}(https://docs.aidbox.app/docs/aidbox/${aidboxPath})`;
+    // Skip non-relative links
+    if (!cleanHref.includes("../")) return match;
+
+    // Resolve the relative path from the file's directory
+    const fileDir = dirname(filePath);
+    const resolved = join(fileDir, cleanHref)
+      .replace(/\.md$/, "")
+      .replace(/\/README$/, "");
+
+    // If it resolves to a known formbox path, keep as-is
+    if (formboxPaths.has(resolved) || formboxPaths.has(resolved + "/README")) {
+      return match;
     }
 
-    return match;
+    // It's outside formbox — rewrite to external aidbox docs URL
+    const aidboxPath = cleanHref
+      .replace(/^(\.\.\/)+/, "")
+      .replace(/\.md$/, "")
+      .replace(/\/README$/, "");
+    const anchorSuffix = anchor ? `#${anchor}` : "";
+    return `${text}(https://docs.aidbox.app/docs/aidbox/${aidboxPath}${anchorSuffix})`;
   });
 }
 
@@ -358,17 +386,33 @@ async function findReferencedImages(
     const content = await readText(join(docsDir, file));
     if (!content) continue;
 
-    // Match .gitbook/assets/FILENAME patterns
-    const pattern = /\.gitbook\/assets\/([^\s"')<>]+)/g;
+    // Match image references in both markdown and HTML contexts:
+    // - Markdown: ![alt](../../.gitbook/assets/file.png)
+    // - HTML: <img src="../../.gitbook/assets/file (1).png">
+    // Filenames may contain spaces and parentheses (e.g. "image (1) (1).png")
     let match;
-    while ((match = pattern.exec(content)) !== null) {
-      images.add(match[1]);
+
+    // HTML context: quoted paths (allows spaces and parens)
+    const htmlPattern1 = /\.gitbook\/assets\/([^"'\n]+?)(?=["'])/g;
+    while ((match = htmlPattern1.exec(content)) !== null) {
+      images.add(match[1].trim());
     }
 
-    // Also match assets/FILENAME (already rewritten)
-    const pattern2 = /(?:\.\.\/)+assets\/([^\s"')<>]+)/g;
-    while ((match = pattern2.exec(content)) !== null) {
-      images.add(match[1]);
+    // Markdown context: paths in parens (no spaces allowed — markdown convention)
+    const mdPattern1 = /\.gitbook\/assets\/([^\s"')<>\n]+)/g;
+    while ((match = mdPattern1.exec(content)) !== null) {
+      images.add(match[1].trim());
+    }
+
+    // Same for already-rewritten ../assets/ paths
+    const htmlPattern2 = /(?:\.\.\/)+assets\/([^"'\n]+?)(?=["'])/g;
+    while ((match = htmlPattern2.exec(content)) !== null) {
+      images.add(match[1].trim());
+    }
+
+    const mdPattern2 = /(?:\.\.\/)+assets\/([^\s"')<>\n]+)/g;
+    while ((match = mdPattern2.exec(content)) !== null) {
+      images.add(match[1].trim());
     }
   }
 
@@ -450,7 +494,7 @@ async function migrateAidbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteImagePaths(content);
+    const rewritten = rewriteImagePaths(content, file);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       rewriteCount++;
@@ -504,8 +548,8 @@ async function migrateAuditbox(): Promise<void> {
   // 3. Copy assets from root .gitbook/assets/auditbox/ (stripping auditbox/ prefix)
   info("Copying assets...");
   let assetCount = 0;
-  if (await Bun.file(join(srcAssetsRoot, ".")).exists().catch(() => false) || true) {
-    const rootAssets = await globFiles(srcAssetsRoot, "**/*").catch(() => []);
+  if (await dirExists(srcAssetsRoot)) {
+    const rootAssets = await globFiles(srcAssetsRoot, "**/*");
     for (const file of rootAssets) {
       const srcPath = join(srcAssetsRoot, file);
       const f = Bun.file(srcPath);
@@ -521,7 +565,7 @@ async function migrateAuditbox(): Promise<void> {
   }
 
   // Also copy from local .gitbook/assets/ (non-auditbox subfolder items)
-  const localAssets = await globFiles(srcAssetsLocal, "*").catch(() => []);
+  const localAssets = await globFiles(srcAssetsLocal, "**/*").catch(() => []);
   for (const file of localAssets) {
     if (file === "auditbox") continue; // skip subdirectory
     const srcPath = join(srcAssetsLocal, file);
@@ -560,7 +604,7 @@ async function migrateAuditbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteImagePaths(content, {
+    const rewritten = rewriteImagePaths(content, file, {
       stripAssetPrefix: "auditbox/",
     });
     if (rewritten !== content) {
@@ -646,9 +690,7 @@ async function migrateFormbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    // Forms docs are nested deeper, so they have more ../
-    // The pattern still works: replace .gitbook/assets/ with ../assets/
-    const rewritten = rewriteImagePaths(content);
+    const rewritten = rewriteImagePaths(content, file);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       rewriteCount++;
@@ -690,7 +732,7 @@ async function migrateFormbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteExternalLinks(content, formboxPaths);
+    const rewritten = rewriteExternalLinks(content, file, formboxPaths);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       crossLinkCount++;
@@ -699,6 +741,195 @@ async function migrateFormbox(): Promise<void> {
   ok(`Rewrote cross-links in ${crossLinkCount} files`);
 
   await runLint(target);
+}
+
+// ---------------------------------------------------------------------------
+// Generic module migration (erxbox, mdmbox, etc.)
+// ---------------------------------------------------------------------------
+
+/**
+ * Migrate a single module from aidbox docs into its own repo.
+ * Source: documentation/docs/modules/{modulePath}/
+ * Target: {targetRepo}/docs/
+ */
+async function migrateModule(opts: {
+  name: string;
+  modulePath: string;
+  targetRepo: string;
+  summarySection: string; // prefix to match in SUMMARY.md, e.g. "modules/eprescription/"
+}): Promise<void> {
+  log(`\n${BOLD}=== Migrating ${opts.name} ===${RESET}`);
+
+  const srcModule = join(DOCS_ROOT, "docs/modules", opts.modulePath);
+  const srcAssets = join(DOCS_ROOT, "docs/.gitbook/assets");
+  const srcAssetsRoot = join(DOCS_ROOT, ".gitbook/assets");
+  const srcSummary = join(DOCS_ROOT, "docs/SUMMARY.md");
+  const target = opts.targetRepo;
+
+  if (!(await dirExists(srcModule))) {
+    fail(`Source module not found: ${srcModule}`);
+    return;
+  }
+
+  if (!(await dirExists(target))) {
+    fail(`Target repo not found: ${target}. Clone it first.`);
+    return;
+  }
+
+  // 1. Clean
+  info("Cleaning target docs/ and assets/...");
+  await cleanDir(join(target, "docs"));
+  await cleanDir(join(target, "assets"));
+
+  // 2. Copy module docs (flatten: modules/X/* -> docs/*)
+  info("Copying docs...");
+  let docCount = 0;
+  const moduleFiles = await globFiles(srcModule, "**/*.md");
+  for (const file of moduleFiles) {
+    const srcPath = join(srcModule, file);
+    const dstPath = join(target, "docs", file);
+    if (!DRY_RUN) {
+      await mkdirp(dirname(dstPath));
+      await Bun.write(dstPath, Bun.file(srcPath));
+    }
+    docCount++;
+  }
+  ok(`Copied ${docCount} markdown files`);
+
+  // 3. Generate SUMMARY.md by extracting the module section
+  info("Generating SUMMARY.md...");
+  const fullSummary = await readText(srcSummary);
+  if (fullSummary) {
+    const moduleSummary = extractModuleSummary(
+      fullSummary,
+      opts.summarySection,
+    );
+    await writeText(join(target, "SUMMARY.md"), moduleSummary);
+    ok("SUMMARY.md generated");
+  }
+
+  // 4. Empty redirects
+  await writeText(join(target, "redirects.yaml"), "redirects: {}\n");
+  ok("redirects.yaml created (empty)");
+
+  // 5. Rewrite image paths
+  info("Rewriting image paths...");
+  let rewriteCount = 0;
+  const targetMdFiles = await globFiles(join(target, "docs"), "**/*.md");
+  for (const file of targetMdFiles) {
+    const filePath = join(target, "docs", file);
+    const content = await readText(filePath);
+    if (!content) continue;
+
+    const rewritten = rewriteImagePaths(content, file);
+    if (rewritten !== content) {
+      await writeText(filePath, rewritten);
+      rewriteCount++;
+    }
+  }
+  ok(`Rewrote image paths in ${rewriteCount} files`);
+
+  // 6. Copy only referenced images
+  info("Copying referenced assets...");
+  const referencedImages = await findReferencedImages(join(target, "docs"));
+  let assetCount = 0;
+  for (const imageName of referencedImages) {
+    // Try docs/.gitbook/assets/ first, then root .gitbook/assets/
+    let found = false;
+    for (const assetsDir of [srcAssets, srcAssetsRoot]) {
+      const srcPath = join(assetsDir, imageName);
+      const f = Bun.file(srcPath);
+      if (await f.exists()) {
+        const dstPath = join(target, "assets", imageName);
+        if (!DRY_RUN) {
+          await mkdirp(dirname(dstPath));
+          await Bun.write(dstPath, f);
+        }
+        assetCount++;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      warn(`Referenced image not found: ${imageName}`);
+    }
+  }
+  ok(`Copied ${assetCount} referenced assets`);
+
+  // 7. Rewrite cross-links to aidbox as external
+  info("Rewriting cross-links to external URLs...");
+  const modulePaths = new Set(
+    (await globFiles(join(target, "docs"), "**/*.md")).map((f) =>
+      f.replace(/\.md$/, ""),
+    ),
+  );
+
+  let crossLinkCount = 0;
+  for (const file of targetMdFiles) {
+    const filePath = join(target, "docs", file);
+    const content = await readText(filePath);
+    if (!content) continue;
+
+    const rewritten = rewriteExternalLinks(content, file, modulePaths);
+    if (rewritten !== content) {
+      await writeText(filePath, rewritten);
+      crossLinkCount++;
+    }
+  }
+  ok(`Rewrote cross-links in ${crossLinkCount} files`);
+
+  await runLint(target);
+}
+
+/**
+ * Extract a module section from SUMMARY.md.
+ * Finds lines matching the sectionPrefix, captures the block,
+ * strips the prefix, and de-indents.
+ */
+function extractModuleSummary(
+  fullSummary: string,
+  sectionPrefix: string,
+): string {
+  const lines = fullSummary.split("\n");
+  const sectionLines: string[] = [];
+  let inSection = false;
+  let sectionIndent = -1;
+
+  for (const line of lines) {
+    if (line.includes(sectionPrefix)) {
+      if (!inSection) {
+        inSection = true;
+        sectionIndent = line.search(/\S/);
+      }
+      sectionLines.push(line);
+      continue;
+    }
+
+    if (inSection) {
+      const trimmed = line.trim();
+      if (trimmed === "") continue;
+      const indent = line.search(/\S/);
+      if (indent <= sectionIndent) {
+        inSection = false;
+      } else {
+        sectionLines.push(line);
+        continue;
+      }
+    }
+  }
+
+  // Strip module path prefix and de-indent
+  const minIndent = sectionLines
+    .filter((l) => l.trim())
+    .reduce((min, l) => Math.min(min, l.search(/\S/)), Infinity);
+
+  const processed = sectionLines.map((line) => {
+    if (!line.trim()) return "";
+    const deindented = line.slice(Math.min(minIndent, line.search(/\S/)));
+    return deindented.replace(new RegExp(escapeRegex(sectionPrefix), "g"), "");
+  });
+
+  return ["# Table of contents", "", ...processed, ""].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -755,7 +986,7 @@ async function main(): Promise<void> {
   }
 
   const products = ONLY_PRODUCT === "all"
-    ? ["aidbox", "auditbox", "formbox"]
+    ? ["aidbox", "auditbox", "formbox", "erxbox", "mdmbox"]
     : [ONLY_PRODUCT];
 
   for (const product of products) {
@@ -768,6 +999,22 @@ async function main(): Promise<void> {
         break;
       case "formbox":
         await migrateFormbox();
+        break;
+      case "erxbox":
+        await migrateModule({
+          name: "eRxBox",
+          modulePath: "eprescription",
+          targetRepo: join(REPOS_ROOT, "erxbox-docs"),
+          summarySection: "modules/eprescription/",
+        });
+        break;
+      case "mdmbox":
+        await migrateModule({
+          name: "MDMBox",
+          modulePath: "mdm",
+          targetRepo: join(REPOS_ROOT, "mdmbox-docs"),
+          summarySection: "modules/mdm/",
+        });
         break;
       default:
         fail(`Unknown product: ${product}`);
