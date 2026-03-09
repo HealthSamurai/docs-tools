@@ -185,6 +185,61 @@ function rewriteImagePaths(
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Absolute link rewriting
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewrite absolute links to docs.aidbox.app into relative paths (for aidbox-docs)
+ * or leave them as-is for cross-product repos.
+ *
+ * For aidbox-docs: https://docs.aidbox.app/docs/aidbox/X -> relative path to X
+ * For aidbox-docs: https://docs.aidbox.app/X -> relative path to X (old format)
+ *
+ * @param filePath - path relative to docs/ dir
+ * @param docsDir  - path to target docs/ dir (to resolve relative paths)
+ */
+function rewriteAbsoluteLinks(
+  content: string,
+  filePath: string,
+  docsDir: string,
+): string {
+  // Match [text](https://docs.aidbox.app/...) and [text](https://www.health-samurai.io/docs/aidbox/...) links
+  const pattern = /(\[[^\]]*\])\(https:\/\/(?:docs\.aidbox\.app\/(?:docs\/aidbox\/)?|(?:www\.)?health-samurai\.io\/docs\/aidbox\/)([^)]*)\)/g;
+
+  // Collect replacements (can't use async in replace, so check files sync)
+  const replacements: Array<{ match: string; replacement: string }> = [];
+
+  let m;
+  while ((m = pattern.exec(content)) !== null) {
+    const [match, text, path] = m;
+    const fileDir = dirname(filePath);
+    const depth = fileDir === "." ? 0 : fileDir.split("/").length;
+    const toDocsRoot = depth > 0 ? "../".repeat(depth) : "./";
+
+    const [cleanPath, anchor] = path.split("#");
+    const anchorSuffix = anchor ? `#${anchor}` : "";
+
+    const mdPath = cleanPath.endsWith("/")
+      ? cleanPath + "README.md"
+      : /\.\w+$/.test(cleanPath)
+        ? cleanPath
+        : cleanPath + ".md";
+
+    // Only rewrite if the target file actually exists
+    const targetFile = join(docsDir, mdPath);
+    if (require("fs").existsSync(targetFile)) {
+      replacements.push({ match, replacement: `${text}(${toDocsRoot}${mdPath}${anchorSuffix})` });
+    }
+  }
+
+  let result = content;
+  for (const { match, replacement } of replacements) {
+    result = result.replace(match, replacement);
+  }
+  return result;
+}
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -502,7 +557,47 @@ async function migrateAidbox(): Promise<void> {
   }
   ok(`Rewrote image paths in ${rewriteCount} files`);
 
-  // 7. Run lint
+  // 7. Rewrite absolute links to relative
+  info("Rewriting absolute links...");
+  let absLinkCount = 0;
+  for (const file of targetMdFiles) {
+    const filePath = join(target, "docs", file);
+    const content = await readText(filePath);
+    if (!content) continue;
+
+    const rewritten = rewriteAbsoluteLinks(content, file, join(target, "docs"));
+    if (rewritten !== content) {
+      await writeText(filePath, rewritten);
+      absLinkCount++;
+    }
+  }
+  ok(`Rewrote absolute links in ${absLinkCount} files`);
+
+  // 8. Update docs-lint.yaml
+  info("Updating docs-lint.yaml...");
+  const aidboxLintConfig = [
+    "docs_dir: docs",
+    "assets_dir: assets",
+    "summary: SUMMARY.md",
+    "redirects: redirects.yaml",
+    "",
+    "checks:",
+    "  warn_only:",
+    "    - image-alt",
+    "    - orphan-pages",
+    "    - deprecated-links",
+    "    - absolute-links",
+    "",
+    "  # Release notes legitimately reference deprecated features",
+    "  deprecated-links:",
+    "    exclude_files:",
+    "      - overview/release-notes.md",
+    "",
+  ].join("\n");
+  await writeText(join(target, "docs-lint.yaml"), aidboxLintConfig);
+  ok("docs-lint.yaml updated");
+
+  // 9. Run lint
   await runLint(target);
 }
 
@@ -740,6 +835,22 @@ async function migrateFormbox(): Promise<void> {
   }
   ok(`Rewrote cross-links in ${crossLinkCount} files`);
 
+  // 8. Update docs-lint.yaml — absolute links to aidbox are legitimate cross-product refs
+  info("Updating docs-lint.yaml...");
+  const lintConfig = [
+    "docs_dir: docs",
+    "assets_dir: assets",
+    "summary: SUMMARY.md",
+    "",
+    "checks:",
+    "  warn_only:",
+    "    - title-mismatch",
+    "    - absolute-links",
+    "",
+  ].join("\n");
+  await writeText(join(target, "docs-lint.yaml"), lintConfig);
+  ok("docs-lint.yaml updated");
+
   await runLint(target);
 }
 
@@ -877,6 +988,22 @@ async function migrateModule(opts: {
     }
   }
   ok(`Rewrote cross-links in ${crossLinkCount} files`);
+
+  // 8. Update docs-lint.yaml — absolute links to aidbox are legitimate cross-product refs
+  info("Updating docs-lint.yaml...");
+  const lintConfig = [
+    "docs_dir: docs",
+    "assets_dir: assets",
+    "summary: SUMMARY.md",
+    "",
+    "checks:",
+    "  warn_only:",
+    "    - title-mismatch",
+    "    - absolute-links",
+    "",
+  ].join("\n");
+  await writeText(join(target, "docs-lint.yaml"), lintConfig);
+  ok("docs-lint.yaml updated");
 
   await runLint(target);
 }
