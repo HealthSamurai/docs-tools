@@ -1060,6 +1060,146 @@ function extractModuleSummary(
 }
 
 // ---------------------------------------------------------------------------
+// Smartbox migration (solutions section)
+// ---------------------------------------------------------------------------
+
+async function migrateSmartbox(): Promise<void> {
+  log(`\n${BOLD}=== Migrating Smartbox ===${RESET}`);
+
+  const srcSolutions = join(DOCS_ROOT, "docs/solutions");
+  const srcAssets = join(DOCS_ROOT, "docs/.gitbook/assets");
+  const srcAssetsRoot = join(DOCS_ROOT, ".gitbook/assets");
+  const srcSummary = join(DOCS_ROOT, "docs/SUMMARY.md");
+  const target = join(REPOS_ROOT, "smartbox-docs");
+
+  if (!(await dirExists(srcSolutions))) {
+    fail(`Source solutions not found: ${srcSolutions}`);
+    return;
+  }
+
+  if (!(await dirExists(target))) {
+    fail(`Target repo not found: ${target}. Clone it first.`);
+    return;
+  }
+
+  // 1. Clean
+  info("Cleaning target docs/ and assets/...");
+  await cleanDir(join(target, "docs"));
+  await cleanDir(join(target, "assets"));
+
+  // 2. Copy solutions docs (flatten: solutions/* -> docs/*)
+  info("Copying docs...");
+  let docCount = 0;
+  const solutionFiles = await globFiles(srcSolutions, "**/*.md");
+  for (const file of solutionFiles) {
+    const srcPath = join(srcSolutions, file);
+    const dstPath = join(target, "docs", file);
+    if (!DRY_RUN) {
+      await mkdirp(dirname(dstPath));
+      await Bun.write(dstPath, Bun.file(srcPath));
+    }
+    docCount++;
+  }
+  ok(`Copied ${docCount} markdown files`);
+
+  // 3. Generate SUMMARY.md by extracting the solutions section
+  info("Generating SUMMARY.md...");
+  const fullSummary = await readText(srcSummary);
+  if (fullSummary) {
+    const smartboxSummary = extractModuleSummary(fullSummary, "solutions/");
+    await writeText(join(target, "SUMMARY.md"), smartboxSummary);
+    ok("SUMMARY.md generated");
+  }
+
+  // 4. Empty redirects
+  await writeText(join(target, "redirects.yaml"), "redirects: {}\n");
+  ok("redirects.yaml created (empty)");
+
+  // 5. Rewrite image paths
+  info("Rewriting image paths...");
+  let rewriteCount = 0;
+  const targetMdFiles = await globFiles(join(target, "docs"), "**/*.md");
+  for (const file of targetMdFiles) {
+    const filePath = join(target, "docs", file);
+    const content = await readText(filePath);
+    if (!content) continue;
+
+    const rewritten = rewriteImagePaths(content, file);
+    if (rewritten !== content) {
+      await writeText(filePath, rewritten);
+      rewriteCount++;
+    }
+  }
+  ok(`Rewrote image paths in ${rewriteCount} files`);
+
+  // 6. Copy only referenced images
+  info("Copying referenced assets...");
+  const referencedImages = await findReferencedImages(join(target, "docs"));
+  let assetCount = 0;
+  for (const imageName of referencedImages) {
+    let found = false;
+    for (const assetsDir of [srcAssets, srcAssetsRoot]) {
+      const srcPath = join(assetsDir, imageName);
+      const f = Bun.file(srcPath);
+      if (await f.exists()) {
+        const dstPath = join(target, "assets", imageName);
+        if (!DRY_RUN) {
+          await mkdirp(dirname(dstPath));
+          await Bun.write(dstPath, f);
+        }
+        assetCount++;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      warn(`Referenced image not found: ${imageName}`);
+    }
+  }
+  ok(`Copied ${assetCount} referenced assets`);
+
+  // 7. Rewrite cross-links to aidbox as external
+  info("Rewriting cross-links to external URLs...");
+  const smartboxPaths = new Set(
+    (await globFiles(join(target, "docs"), "**/*.md")).map((f) =>
+      f.replace(/\.md$/, ""),
+    ),
+  );
+
+  let crossLinkCount = 0;
+  for (const file of targetMdFiles) {
+    const filePath = join(target, "docs", file);
+    const content = await readText(filePath);
+    if (!content) continue;
+
+    const rewritten = rewriteExternalLinks(content, file, smartboxPaths);
+    if (rewritten !== content) {
+      await writeText(filePath, rewritten);
+      crossLinkCount++;
+    }
+  }
+  ok(`Rewrote cross-links in ${crossLinkCount} files`);
+
+  // 8. Update docs-lint.yaml
+  info("Updating docs-lint.yaml...");
+  const lintConfig = [
+    "docs_dir: docs",
+    "assets_dir: assets",
+    "summary: SUMMARY.md",
+    "",
+    "checks:",
+    "  warn_only:",
+    "    - title-mismatch",
+    "    - absolute-links",
+    "",
+  ].join("\n");
+  await writeText(join(target, "docs-lint.yaml"), lintConfig);
+  ok("docs-lint.yaml updated");
+
+  await runLint(target);
+}
+
+// ---------------------------------------------------------------------------
 // Lint runner
 // ---------------------------------------------------------------------------
 
@@ -1113,7 +1253,7 @@ async function main(): Promise<void> {
   }
 
   const products = ONLY_PRODUCT === "all"
-    ? ["aidbox", "auditbox", "formbox", "erxbox", "mdmbox"]
+    ? ["aidbox", "auditbox", "formbox", "erxbox", "mdmbox", "smartbox"]
     : [ONLY_PRODUCT];
 
   for (const product of products) {
@@ -1142,6 +1282,9 @@ async function main(): Promise<void> {
           targetRepo: join(REPOS_ROOT, "mdmbox-docs"),
           summarySection: "modules/mdm/",
         });
+        break;
+      case "smartbox":
+        await migrateSmartbox();
         break;
       default:
         fail(`Unknown product: ${product}`);
