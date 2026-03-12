@@ -420,12 +420,17 @@ function mapToInternalPath(
  * Also handles structural path changes via pathMappings: links referencing
  * the old aidbox-docs structure are mapped back to their new product-internal
  * paths when the target exists.
+ *
+ * @param sourcePrefix - the module's path prefix in the original aidbox-docs
+ *   (e.g. "modules/aidbox-forms" for formbox). Used to correctly resolve
+ *   relative links that escape the product's docs root back to aidbox paths.
  */
 function rewriteExternalLinks(
   content: string,
   filePath: string,
   productPaths: Set<string>,
   pathMappings: Array<{ from: string; to: string }> = [],
+  sourcePrefix: string = "",
 ): string {
   // Match markdown links: [text](path)
   const linkPattern = /(\[[^\]]*\])\(([^)]+)\)/g;
@@ -462,11 +467,36 @@ function rewriteExternalLinks(
       return match;
     }
 
-    // Extract the aidbox-relative path (strip ../ prefixes)
-    const aidboxPath = cleanHref
-      .replace(/^(\.\.\/)+/, "")
-      .replace(/\.md$/, "")
-      .replace(/\/README$/, "");
+    // Reconstruct the original aidbox-docs file path by reversing the migration mapping,
+    // then resolve the href against it to get the correct aidbox-relative path.
+    let aidboxPath: string;
+    if (sourcePrefix) {
+      // Reverse path mappings to find original file location
+      let originalPath = filePath;
+      let mapped = false;
+      for (const { from, to } of pathMappings) {
+        if (to && filePath.startsWith(to)) {
+          originalPath = from + filePath.slice(to.length);
+          mapped = true;
+          break;
+        }
+      }
+      if (!mapped) {
+        originalPath = sourcePrefix + "/" + filePath;
+      }
+      // Resolve href against the original directory
+      const originalDir = dirname(originalPath);
+      const aidboxResolved = join(originalDir, cleanHref)
+        .replace(/\.md$/, "")
+        .replace(/\/README$/, "");
+      // Strip any leading ../ (shouldn't escape aidbox docs root)
+      aidboxPath = aidboxResolved.replace(/^(\.\.\/?)+/, "");
+    } else {
+      aidboxPath = cleanHref
+        .replace(/^(\.\.\/)+/, "")
+        .replace(/\.md$/, "")
+        .replace(/\/README$/, "");
+    }
     const anchorSuffix = anchor ? `#${anchor}` : "";
 
     // Check if this path maps to product-internal content
@@ -883,10 +913,15 @@ async function migrateFormbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
+    // Files from reference/ originally lived at reference/aidbox-forms-reference/
+    // Files from other dirs originally lived at modules/aidbox-forms/
+    const srcPrefix = file.startsWith("reference/")
+      ? "reference/aidbox-forms-reference"
+      : "modules/aidbox-forms";
     let rewritten = rewriteExternalLinks(content, file, formboxPaths, [
       { from: "reference/aidbox-forms-reference/", to: "reference/" },
       { from: "modules/aidbox-forms/", to: "" },
-    ]);
+    ], srcPrefix);
     rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
@@ -1041,7 +1076,7 @@ async function migrateModule(opts: {
     const content = await readText(filePath);
     if (!content) continue;
 
-    let rewritten = rewriteExternalLinks(content, file, modulePaths);
+    let rewritten = rewriteExternalLinks(content, file, modulePaths, [], "modules/" + opts.modulePath);
     rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
@@ -1233,7 +1268,7 @@ async function migrateSmartbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    let rewritten = rewriteExternalLinks(content, file, smartboxPaths);
+    let rewritten = rewriteExternalLinks(content, file, smartboxPaths, [], "solutions");
     rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
