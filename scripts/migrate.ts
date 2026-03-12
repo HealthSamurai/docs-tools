@@ -240,6 +240,25 @@ function rewriteAbsoluteLinks(
   return result;
 }
 
+/**
+ * Rewrite absolute docs.aidbox.app links to www.health-samurai.io.
+ * Handles both new format (docs.aidbox.app/docs/aidbox/X) and
+ * old GitBook format (docs.aidbox.app/X).
+ */
+function rewriteDocsAidboxDomain(content: string): string {
+  // New format: docs.aidbox.app/docs/aidbox/X → www.health-samurai.io/docs/aidbox/X
+  let result = content.replace(
+    /https:\/\/docs\.aidbox\.app\/docs\/aidbox\//g,
+    "https://www.health-samurai.io/docs/aidbox/",
+  );
+  // Old format: docs.aidbox.app/X (not /docs/aidbox/) → www.health-samurai.io/docs/aidbox/X
+  result = result.replace(
+    /https:\/\/docs\.aidbox\.app\/(?!docs\/)/g,
+    "https://www.health-samurai.io/docs/aidbox/",
+  );
+  return result;
+}
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -374,13 +393,39 @@ function extractFormboxSummary(fullSummary: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Rewrite internal links that point outside of formbox content
- * to external links to docs.aidbox.app.
+ * Try to map an aidbox-relative path to a product-internal path using
+ * structural path mappings (e.g. reference/aidbox-forms-reference/ → reference/).
+ * Returns the mapped path if it exists in knownPaths, null otherwise.
+ */
+function mapToInternalPath(
+  aidboxRelPath: string,
+  knownPaths: Set<string>,
+  pathMappings: Array<{ from: string; to: string }>,
+): string | null {
+  for (const { from, to } of pathMappings) {
+    if (aidboxRelPath.includes(from)) {
+      const mapped = aidboxRelPath.replace(from, to);
+      if (knownPaths.has(mapped) || knownPaths.has(mapped + "/README")) {
+        return mapped;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Rewrite internal links that point outside of product content
+ * to external links to www.health-samurai.io/docs/aidbox/.
+ *
+ * Also handles structural path changes via pathMappings: links referencing
+ * the old aidbox-docs structure are mapped back to their new product-internal
+ * paths when the target exists.
  */
 function rewriteExternalLinks(
   content: string,
   filePath: string,
-  formboxPaths: Set<string>,
+  productPaths: Set<string>,
+  pathMappings: Array<{ from: string; to: string }> = [],
 ): string {
   // Match markdown links: [text](path)
   const linkPattern = /(\[[^\]]*\])\(([^)]+)\)/g;
@@ -412,18 +457,29 @@ function rewriteExternalLinks(
       .replace(/\.md$/, "")
       .replace(/\/README$/, "");
 
-    // If it resolves to a known formbox path, keep as-is
-    if (formboxPaths.has(resolved) || formboxPaths.has(resolved + "/README")) {
+    // If it resolves to a known product path, keep as-is
+    if (productPaths.has(resolved) || productPaths.has(resolved + "/README")) {
       return match;
     }
 
-    // It's outside formbox — rewrite to external aidbox docs URL
+    // Extract the aidbox-relative path (strip ../ prefixes)
     const aidboxPath = cleanHref
       .replace(/^(\.\.\/)+/, "")
       .replace(/\.md$/, "")
       .replace(/\/README$/, "");
     const anchorSuffix = anchor ? `#${anchor}` : "";
-    return `${text}(https://docs.aidbox.app/docs/aidbox/${aidboxPath}${anchorSuffix})`;
+
+    // Check if this path maps to product-internal content
+    // (e.g. reference/aidbox-forms-reference/X → reference/X)
+    const mappedPath = mapToInternalPath(aidboxPath, productPaths, pathMappings);
+    if (mappedPath !== null) {
+      const depth = fileDir === "." ? 0 : fileDir.split("/").length;
+      const toDocsRoot = depth > 0 ? "../".repeat(depth) : "./";
+      return `${text}(${toDocsRoot}${mappedPath}${anchorSuffix})`;
+    }
+
+    // It's outside formbox — rewrite to external aidbox docs URL
+    return `${text}(https://www.health-samurai.io/docs/aidbox/${aidboxPath}${anchorSuffix})`;
   });
 }
 
@@ -827,7 +883,11 @@ async function migrateFormbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteExternalLinks(content, file, formboxPaths);
+    let rewritten = rewriteExternalLinks(content, file, formboxPaths, [
+      { from: "reference/aidbox-forms-reference/", to: "reference/" },
+      { from: "modules/aidbox-forms/", to: "" },
+    ]);
+    rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       crossLinkCount++;
@@ -981,7 +1041,8 @@ async function migrateModule(opts: {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteExternalLinks(content, file, modulePaths);
+    let rewritten = rewriteExternalLinks(content, file, modulePaths);
+    rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       crossLinkCount++;
@@ -1172,7 +1233,8 @@ async function migrateSmartbox(): Promise<void> {
     const content = await readText(filePath);
     if (!content) continue;
 
-    const rewritten = rewriteExternalLinks(content, file, smartboxPaths);
+    let rewritten = rewriteExternalLinks(content, file, smartboxPaths);
+    rewritten = rewriteDocsAidboxDomain(rewritten);
     if (rewritten !== content) {
       await writeText(filePath, rewritten);
       crossLinkCount++;
