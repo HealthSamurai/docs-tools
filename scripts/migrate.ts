@@ -81,13 +81,34 @@ async function copyDir(src: string, dst: string): Promise<number> {
   return count;
 }
 
-async function cleanDir(dir: string): Promise<void> {
+async function cleanDir(
+  dir: string,
+  preserve: string[] = [],
+): Promise<void> {
   if (DRY_RUN) {
     info(`would clean ${dir}`);
     return;
   }
-  const proc = Bun.spawn(["rm", "-rf", dir], { stdout: "ignore", stderr: "ignore" });
-  await proc.exited;
+  if (preserve.length === 0) {
+    const proc = Bun.spawn(["rm", "-rf", dir], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    await proc.exited;
+  } else {
+    // Remove everything except preserved dirs
+    const entries = await Array.fromAsync(
+      new Bun.Glob("*").scan({ cwd: dir, dot: true, onlyFiles: false }),
+    ).catch(() => [] as string[]);
+    for (const entry of entries) {
+      if (preserve.includes(entry)) continue;
+      const proc = Bun.spawn(["rm", "-rf", join(dir, entry)], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      await proc.exited;
+    }
+  }
   await mkdirp(dir);
 }
 
@@ -586,7 +607,7 @@ async function migrateAidbox(): Promise<void> {
   // 1. Clean target directories
   info("Cleaning target docs/ and assets/...");
   await cleanDir(join(target, "docs"));
-  await cleanDir(join(target, "assets"));
+  await cleanDir(join(target, "assets"), ["og"]);
 
   // 2. Copy docs (excluding .gitbook/)
   info("Copying docs...");
@@ -709,7 +730,7 @@ async function migrateAuditbox(): Promise<void> {
   // 1. Clean
   info("Cleaning target docs/ and assets/...");
   await cleanDir(join(target, "docs"));
-  await cleanDir(join(target, "assets"));
+  await cleanDir(join(target, "assets"), ["og"]);
 
   // 2. Copy docs
   info("Copying docs...");
@@ -820,7 +841,7 @@ async function migrateFormbox(): Promise<void> {
   // 1. Clean
   info("Cleaning target docs/ and assets/...");
   await cleanDir(join(target, "docs"));
-  await cleanDir(join(target, "assets"));
+  await cleanDir(join(target, "assets"), ["og"]);
 
   // 2. Copy forms docs (flatten: modules/aidbox-forms/* -> docs/*)
   info("Copying forms docs...");
@@ -985,7 +1006,7 @@ async function migrateModule(opts: {
   // 1. Clean
   info("Cleaning target docs/ and assets/...");
   await cleanDir(join(target, "docs"));
-  await cleanDir(join(target, "assets"));
+  await cleanDir(join(target, "assets"), ["og"]);
 
   // 2. Copy module docs (flatten: modules/X/* -> docs/*)
   info("Copying docs...");
@@ -1181,7 +1202,7 @@ async function migrateSmartbox(): Promise<void> {
   // 1. Clean
   info("Cleaning target docs/ and assets/...");
   await cleanDir(join(target, "docs"));
-  await cleanDir(join(target, "assets"));
+  await cleanDir(join(target, "assets"), ["og"]);
 
   // 2. Copy solutions docs (flatten: solutions/* -> docs/*)
   info("Copying docs...");
