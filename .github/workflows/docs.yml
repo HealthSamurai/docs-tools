@@ -47,11 +47,5 @@ jobs:
           git add assets/ docs/ 2>/dev/null || true
           git diff --cached --quiet || git commit -m "chore: optimize images"
 
-      - name: Generate OG images
-        run: |
-          bun og:generate
-          git add assets/og/ 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "chore: generate og images"
-
       - name: Push changes
         run: git push
